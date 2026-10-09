@@ -17,3 +17,4 @@ onnxruntime>=1.17.0
 skl2onnx>=1.16.0
 fastapi>=0.110.0
 uvicorn>=0.28.0
+plotly>=5.18.0
