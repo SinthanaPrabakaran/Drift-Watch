@@ -85,5 +85,12 @@
     "train_samples": 50492,
     "status": "active",
     "trigger_reason": "Automated closed-loop retraining triggered by PySpark dual-drift alert"
+  },
+  {
+    "version": "v2",
+    "model_type": "RandomForestClassifier",
+    "timestamp": "2026-10-09T12:42:36.913245+00:00",
+    "status": "active",
+    "trigger_reason": "Autonomous closed-loop retraining triggered by sustained dual-drift confirmation"
   }
 ]

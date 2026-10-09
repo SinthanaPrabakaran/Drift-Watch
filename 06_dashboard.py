@@ -232,14 +232,49 @@ def main():
     feature_cols = [f"V{i}" for i in range(1, 29)] + ["Amount"]
     
     # Session state for streaming timeline
-    if "timeline" not in st.session_state:
-        st.session_state.timeline = [
-            {"batch": 1, "phase": "Nominal", "psi_v14": 0.021, "f1": 0.845, "model": "v1 (Baseline)"},
-            {"batch": 2, "phase": "Nominal", "psi_v14": 0.034, "f1": 0.840, "model": "v1 (Baseline)"},
-            {"batch": 3, "phase": "Mild Drift", "psi_v14": 0.142, "f1": 0.795, "model": "v1 (Baseline)"},
-            {"batch": 4, "phase": "Severe Drift", "psi_v14": 0.384, "f1": 0.693, "model": "v1 (Baseline)"},
-            {"batch": 5, "phase": "Auto-Retrained", "psi_v14": 0.380, "f1": 0.747, "model": "v2 (Retrained)"},
-        ]
+    # Session state for streaming timeline
+    acc_log_path = os.path.join(LOGS_DIR, "model_accuracy_log.csv")
+    psi_log_path = os.path.join(LOGS_DIR, "psi_log.csv")
+    
+    # Try reading live streaming logs if available
+    live_timeline = []
+    if os.path.exists(acc_log_path) and os.path.getsize(acc_log_path) > 100:
+        try:
+            df_acc = pd.read_csv(acc_log_path)
+            df_psi = pd.read_csv(psi_log_path) if os.path.exists(psi_log_path) else pd.DataFrame()
+            for b_id in sorted(df_acc["batch_id"].unique()):
+                row_acc = df_acc[df_acc["batch_id"] == b_id].iloc[-1]
+                f1_val = float(row_acc.get("fraud_f1", 0.8))
+                m_ver = str(row_acc.get("model_version", "v1"))
+                
+                # Fetch peak psi
+                if not df_psi.empty and "batch_id" in df_psi.columns:
+                    b_psi = df_psi[(df_psi["batch_id"] == b_id) & (df_psi["feature"] == "V14")]
+                    psi_v14 = float(b_psi["psi"].iloc[-1]) if not b_psi.empty else 0.05
+                else:
+                    psi_v14 = 0.05
+                    
+                live_timeline.append({
+                    "batch": int(b_id),
+                    "phase": "Nominal" if psi_v14 < 0.1 else ("Mild" if psi_v14 < 0.25 else "Severe"),
+                    "psi_v14": psi_v14,
+                    "f1": f1_val,
+                    "model": f"{m_ver} (Active)"
+                })
+        except Exception as e:
+            pass
+            
+    if "timeline" not in st.session_state or (live_timeline and len(live_timeline) > len(st.session_state.timeline)):
+        if live_timeline:
+            st.session_state.timeline = live_timeline
+        else:
+            st.session_state.timeline = [
+                {"batch": 1, "phase": "Nominal", "psi_v14": 0.021, "f1": 0.845, "model": "v1 (Baseline)"},
+                {"batch": 2, "phase": "Nominal", "psi_v14": 0.034, "f1": 0.840, "model": "v1 (Baseline)"},
+                {"batch": 3, "phase": "Mild Drift", "psi_v14": 0.142, "f1": 0.795, "model": "v1 (Baseline)"},
+                {"batch": 4, "phase": "Severe Drift", "psi_v14": 0.384, "f1": 0.693, "model": "v1 (Baseline)"},
+                {"batch": 5, "phase": "Auto-Retrained", "psi_v14": 0.380, "f1": 0.747, "model": "v2 (Retrained)"},
+            ]
         
     if "current_batch_df" not in st.session_state:
         st.session_state.current_batch_df = generate_drifted_batch(test_pool, "Normal Traffic (Nominal)", 300)
