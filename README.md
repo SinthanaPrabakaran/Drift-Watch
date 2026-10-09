@@ -257,3 +257,34 @@ CLOSED-LOOP V-CURVE PERFORMANCE PROOF:
 
 - **Inference Latency:** ONNX Runtime yields **~4.5x faster** inference per 1,000 requests compared to standard Python joblib/pickle deserialization.
 - **Micro-Batch Processing:** Spark foreachBatch processes 300-event streaming micro-batches with full statistical dual confirmation and SHAP sampling in under **1.2 seconds**.
+
+---
+
+## 🚀 Fast-Track Execution & Showcase Options
+
+### Option A: The Turnkey One-Click Launcher
+Starts the ONNX inference microservice and Streamlit Observability Console simultaneously:
+```powershell
+.\start_driftwatch.ps1
+```
+*(Or double-click `start_driftwatch.bat` in Windows File Explorer)*
+
+### Option B: The Zero-Docker Standalone Streaming Engine
+Demonstrates the full distributed streaming and autonomous closed-loop retraining lifecycle without needing Docker:
+```powershell
+python demo_mode.py
+```
+
+### Option C: Automated System Health Verification
+Runs the 6-step automated test suite verifying dataset, profiles, ONNX models, and drift mathematics:
+```powershell
+python test_pipeline.py
+```
+
+### Option D: Interactive Viva & Interview Defense Prep Guide
+Launches the interactive defense CLI covering the Top 15 technical viva questions:
+```powershell
+python viva_prep.py
+```
+*(Or pass `python viva_prep.py all` to display all questions and answers at once)*
+
