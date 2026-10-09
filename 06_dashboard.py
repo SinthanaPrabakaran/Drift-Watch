@@ -414,8 +414,8 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Tabs for Organization
-    tab_overview, tab_distribution, tab_closed_loop, tab_playground = st.tabs([
-        "📊 Dual-Drift Analytics", "🔍 Statistical Distributions & SHAP", "🔄 Closed-Loop V-Curve", "⚡ Real-Time Inference Playground"
+    tab_overview, tab_distribution, tab_closed_loop, tab_playground, tab_alerts = st.tabs([
+        "📊 Dual-Drift Analytics", "🔍 Statistical Distributions & SHAP", "🔄 Closed-Loop V-Curve", "⚡ Real-Time Inference Playground", "🚨 Incident Log & Alerts"
     ])
 
     with tab_overview:
@@ -590,47 +590,138 @@ def main():
             """)
 
     with tab_playground:
-        st.markdown("##### ⚡ Interactive Real-Time Transaction Scorer")
-        st.caption("Test the active ONNX model session directly with user-controlled parameters.")
+        sub_tab1, sub_tab2 = st.tabs(["🎯 Single Transaction Scorer", "📁 Batch CSV Upload & Drift Auditor"])
         
-        col_p1, col_p2, col_p3 = st.columns(3)
-        with col_p1:
-            in_amount = st.slider("Transaction Amount ($):", 1.0, 5000.0, 149.50, step=10.0)
-            in_v14 = st.slider("Feature V14 (Top SHAP):", -15.0, 10.0, -1.2, step=0.1)
-        with col_p2:
-            in_v4 = st.slider("Feature V4 (Second SHAP):", -5.0, 15.0, 0.8, step=0.1)
-            in_v12 = st.slider("Feature V12 (Third SHAP):", -15.0, 5.0, -0.5, step=0.1)
-        with col_p3:
-            in_v10 = st.slider("Feature V10:", -15.0, 10.0, 0.2, step=0.1)
-            in_v11 = st.slider("Feature V11:", -5.0, 15.0, -0.1, step=0.1)
+        with sub_tab1:
+            st.markdown("##### Real-Time Single Transaction Scoring")
+            st.caption("Score transactions instantly through the active ONNX/ML model session.")
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                in_amount = st.slider("Transaction Amount ($):", 1.0, 5000.0, 149.50, step=10.0)
+                in_v14 = st.slider("Feature V14 (Top SHAP):", -15.0, 10.0, -1.2, step=0.1)
+            with col_p2:
+                in_v4 = st.slider("Feature V4 (Second SHAP):", -5.0, 15.0, 0.8, step=0.1)
+                in_v12 = st.slider("Feature V12 (Third SHAP):", -15.0, 5.0, -0.5, step=0.1)
+            with col_p3:
+                in_v10 = st.slider("Feature V10:", -15.0, 10.0, 0.2, step=0.1)
+                in_v11 = st.slider("Feature V11:", -5.0, 15.0, -0.1, step=0.1)
+                
+            if st.button("🔍 Score Single Transaction", use_container_width=True):
+                sample_features = np.zeros((1, 29), dtype=np.float32)
+                sample_features[0, 13] = in_v14  # V14
+                sample_features[0, 3] = in_v4    # V4
+                sample_features[0, 11] = in_v12  # V12
+                sample_features[0, 9] = in_v10   # V10
+                sample_features[0, 10] = in_v11  # V11
+                sample_features[0, 28] = in_amount # Amount
+                
+                t0 = time.perf_counter()
+                active_m = models.get("v2", models.get("v1"))
+                if active_m:
+                    pred = active_m.predict(sample_features)[0]
+                    proba = active_m.predict_proba(sample_features)[0][1]
+                else:
+                    pred = 0
+                    proba = 0.05
+                latency_ms = (time.perf_counter() - t0) * 1000
+                
+                col_res1, col_res2, col_res3 = st.columns(3)
+                with col_res1:
+                    st.metric("Fraud Classification", "🚨 FRAUD" if pred == 1 else "✅ LEGITIMATE")
+                with col_res2:
+                    st.metric("Fraud Probability", f"{proba * 100:.2f}%")
+                with col_res3:
+                    st.metric("Inference Latency", f"{latency_ms:.2f} ms")
+
+        with sub_tab2:
+            st.markdown("##### Batch CSV Upload & Distribution Drift Auditor")
+            st.caption("Upload an arbitrary batch of transactions to compute instantaneous distribution shift against baseline.")
+            uploaded_file = st.file_uploader("Upload Batch CSV (V1-V28, Amount):", type=["csv"])
             
-        if st.button("🔍 Score Transaction", use_container_width=True):
-            # Synthesize 29 features
-            sample_features = np.zeros((1, 29), dtype=np.float32)
-            sample_features[0, 13] = in_v14  # V14
-            sample_features[0, 3] = in_v4    # V4
-            sample_features[0, 11] = in_v12  # V12
-            sample_features[0, 9] = in_v10   # V10
-            sample_features[0, 10] = in_v11  # V11
-            sample_features[0, 28] = in_amount # Amount
-            
-            t0 = time.perf_counter()
-            active_m = models.get("v2", models.get("v1"))
-            if active_m:
-                pred = active_m.predict(sample_features)[0]
-                proba = active_m.predict_proba(sample_features)[0][1]
+            if uploaded_file is not None:
+                try:
+                    user_df = pd.read_csv(uploaded_file)
+                    st.success(f"Loaded {len(user_df):,} records successfully!")
+                    
+                    # Check feature overlap
+                    overlap_cols = [c for c in feature_cols if c in user_df.columns]
+                    if len(overlap_cols) < 5:
+                        st.warning("Uploaded CSV missing required features (V1-V28, Amount).")
+                    else:
+                        active_m = models.get("v2", models.get("v1"))
+                        if active_m:
+                            # Fill missing cols with 0
+                            for c in feature_cols:
+                                if c not in user_df.columns:
+                                    user_df[c] = 0.0
+                            preds = active_m.predict(user_df[feature_cols])
+                            user_df["Predicted_Fraud"] = preds
+                            
+                            # Summary metrics
+                            n_frauds = int(preds.sum())
+                            st.write(f"**Batch Prediction Summary:** {n_frauds} Frauds flagged ({n_frauds / len(preds) * 100:.2f}%)")
+                            
+                            # Batch PSI calculation for top 5 features
+                            b_psi_results = {}
+                            for feat in top_5_features:
+                                if feat in user_df.columns and feat in features_meta:
+                                    p = compute_psi(user_df[feat].values, features_meta[feat])
+                                    b_psi_results[feat] = p
+                                    
+                            st.markdown("###### Uploaded Batch PSI Drift Profile:")
+                            b_psi_df = pd.DataFrame({"Feature": list(b_psi_results.keys()), "PSI": list(b_psi_results.values())})
+                            st.dataframe(b_psi_df.style.highlight_max(axis=0, color="#ef4444"), use_container_width=True)
+                            
+                            # Download scored data
+                            csv_data = user_df.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="📥 Download Scored CSV with Predictions",
+                                data=csv_data,
+                                file_name="driftwatch_scored_batch.csv",
+                                mime="text/csv",
+                                use_container_width=True
+                            )
+                except Exception as e:
+                    st.error(f"Error parsing CSV: {e}")
+
+    with tab_alerts:
+        st.markdown("##### 🚨 Drift Incidents & Alert Governance")
+        st.caption("Real-time audit log of sustained dual-drift violations and automated retraining events.")
+        
+        col_a1, col_a2 = st.columns(2)
+        with col_a1:
+            st.markdown("###### Drift Alerts Log (`logs/drift_alerts.log`)")
+            alerts_path = os.path.join(LOGS_DIR, "drift_alerts.log")
+            if os.path.exists(alerts_path) and os.path.getsize(alerts_path) > 0:
+                with open(alerts_path, "r") as f:
+                    alert_lines = f.readlines()
+                for line in alert_lines[-8:]:
+                    st.error(f"🚨 {line.strip()}")
             else:
-                pred = 0
-                proba = 0.05
-            latency_ms = (time.perf_counter() - t0) * 1000
-            
-            col_res1, col_res2, col_res3 = st.columns(3)
-            with col_res1:
-                st.metric("Fraud Classification", "🚨 FRAUD" if pred == 1 else "✅ LEGITIMATE")
-            with col_res2:
-                st.metric("Fraud Probability", f"{proba * 100:.2f}%")
-            with col_res3:
-                st.metric("Inference Latency", f"{latency_ms:.2f} ms")
+                st.info("No active drift alerts. All statistical indicators within nominal thresholds.")
+
+        with col_a2:
+            st.markdown("###### Retraining Events Log (`logs/retrain_events.log`)")
+            retrain_path = os.path.join(LOGS_DIR, "retrain_events.log")
+            if os.path.exists(retrain_path) and os.path.getsize(retrain_path) > 0:
+                with open(retrain_path, "r") as f:
+                    retrain_lines = f.readlines()
+                for line in retrain_lines[-8:]:
+                    st.success(f"🔄 {line.strip()}")
+            else:
+                st.info("No autonomous retraining events logged yet.")
+                
+        st.markdown("---")
+        st.markdown("###### 🔔 Simulated Webhook Alert Dispatcher")
+        st.caption("Test sending an operational alert payload to an external incident channel (e.g. Slack / Discord / PagerDuty).")
+        col_w1, col_w2 = st.columns([3, 1])
+        with col_w1:
+            webhook_target = st.text_input("Webhook Destination Endpoint:", value="https://hooks.slack.com/services/SIMULATED/DRIFTWATCH/ALERTS")
+        with col_w2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("📤 Send Test Dispatch", use_container_width=True):
+                st.toast("✅ Incident dispatch packet simulated and logged!", icon="🔔")
+                st.success(f"Alert payload dispatched to `{webhook_target}` with payload: `{{'event': 'CRITICAL_DRIFT', 'top_feature': 'V14', 'psi': {max_psi:.4f}}}`")
 
 
 if __name__ == "__main__":
