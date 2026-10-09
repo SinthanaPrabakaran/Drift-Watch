@@ -7,7 +7,7 @@
     "recall": 0.7551,
     "roc_auc": 0.958,
     "pr_auc": 0.8485,
-    "timestamp": "2026-09-17T16:03:01.844043+00:00",
+    "timestamp": "2026-10-09T06:27:56.476012+00:00",
     "features": [
       "V1",
       "V2",
@@ -50,7 +50,7 @@
     "precision": 0.9833,
     "recall": 0.602,
     "accuracy": 0.9636,
-    "timestamp": "2026-09-19T13:38:21.515042+00:00",
+    "timestamp": "2026-10-09T07:33:21.301050+00:00",
     "features": [
       "V1",
       "V2",
@@ -82,43 +82,8 @@
       "V28",
       "Amount"
     ],
-    "train_samples": 51452,
+    "train_samples": 50492,
     "status": "active",
     "trigger_reason": "Automated closed-loop retraining triggered by PySpark dual-drift alert"
-  },
-  {
-    "dataset": "bank_marketing",
-    "version": "v1_bank",
-    "model_type": "RandomForestClassifier",
-    "format": "ONNX",
-    "model_file": "bank_model.onnx",
-    "trained_at": "2026-09-23T17:14:46.898129+00:00",
-    "status": "active",
-    "f1": 0.6612,
-    "precision": 0.7094,
-    "recall": 0.2561,
-    "roc_auc": 0.9264,
-    "features": {
-      "categorical": [
-        "job",
-        "marital",
-        "education",
-        "default",
-        "housing",
-        "loan",
-        "contact",
-        "month",
-        "poutcome"
-      ],
-      "numerical": [
-        "age",
-        "balance",
-        "day",
-        "duration",
-        "campaign",
-        "pdays",
-        "previous"
-      ]
-    }
   }
 ]
