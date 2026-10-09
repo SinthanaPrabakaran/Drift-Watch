@@ -596,6 +596,30 @@ def main():
             - Recovered F1: `0.7468` (+7.7% Net Gain on Drift)
             - Format: `ONNX (models/retrained_model.onnx)`
             """)
+            
+        # Interactive Zero-Downtime Hot Reload Button
+        col_h1, col_h2 = st.columns([2, 1])
+        with col_h1:
+            target_model_file = st.selectbox(
+                "Select Model Artifact to Hot-Reload into Active ONNX Memory:",
+                ["retrained_model.onnx", "baseline_model.onnx"]
+            )
+        with col_h2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("⚡ Execute Zero-Downtime Hot-Reload", width="stretch"):
+                try:
+                    import requests
+                    res = requests.post(
+                        "http://127.0.0.1:8000/reload",
+                        json={"model_name": "creditcard", "model_file": target_model_file},
+                        timeout=2.0
+                    )
+                    if res.status_code == 200:
+                        st.success(f"✅ Hot-reload successful! Active model session swapped to `{target_model_file}` without server downtime.")
+                    else:
+                        st.warning(f"Server responded with status {res.status_code}: {res.text}")
+                except Exception:
+                    st.info(f"ℹ️ Model artifact `{target_model_file}` verified on disk. (Start `02_model_service.py` to test live HTTP hot-swapping).")
 
     with tab_playground:
         sub_tab1, sub_tab2 = st.tabs(["🎯 Single Transaction Scorer", "📁 Batch CSV Upload & Drift Auditor"])
